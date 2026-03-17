@@ -35,13 +35,53 @@ python run.py --symbol 600519.SS --provider stooq --module strategy
 - 投资策略建议卡片
 - 最近交易数据表
 
-启动方式：
+### 本地启动（推荐）
+
+Windows PowerShell：
 
 ```bash
-streamlit run streamlit_app.py
+cd "e:\vs code\jy"
+.\.venv\Scripts\python.exe -m streamlit run streamlit_app.py
 ```
 
+启动成功后浏览器访问：`http://localhost:8501`
+
 页面左侧可切换数据源（`auto/stooq/yahoo/mock`）与股票代码。
+
+### 常见问题
+
+1. 双击运行 `streamlit_app.py` 报错：
+必须使用 `streamlit run` 启动，不能直接按普通 Python 脚本运行。
+
+2. 报错缺少 `streamlit` 或 `plotly`：
+
+```bash
+.\.venv\Scripts\python.exe -m pip install streamlit plotly
+```
+
+3. 8501 端口被占用：
+
+```bash
+.\.venv\Scripts\python.exe -m streamlit run streamlit_app.py --server.port 8502
+```
+
+### 为什么 GitHub 仓库网址不能直接运行网页
+
+GitHub 仓库页面只是“代码托管”，不是 Python 应用运行环境。
+
+- `http://localhost:8501` 只在你本机启动 Streamlit 后有效
+- 在 GitHub 页面里点击仓库链接，不会自动执行 `streamlit run`
+
+如果希望“别人点链接就能直接打开网页”，需要部署到在线平台（例如 Streamlit Community Cloud、Render、Railway 等）。
+
+### 在线部署建议（可选）
+
+可使用 Streamlit Community Cloud：
+
+1. 将项目推送到 GitHub
+2. 在 Streamlit Cloud 选择该仓库与分支
+3. `Main file path` 填 `streamlit_app.py`
+4. 部署完成后会得到公开访问链接
 
 ## GitHub 发布建议（一键启动）
 
@@ -56,49 +96,6 @@ streamlit run streamlit_app.py
 1. 双击 `setup_and_start_web.bat`
 2. 浏览器打开 `http://localhost:8501`
 3. 在页面左侧输入股票代码并开始分析
-
-## 上传 GitHub 前检查
-
-建议在上传前确认：
-
-- 已忽略本地环境目录（`.venv/`）和缓存文件（见 `.gitignore`）
-- `requirements.txt` 可用于安装运行依赖
-- 启动入口文件存在：`run.py`、`streamlit_app.py`
-- 一键脚本可用：`start_cli.bat`、`start_web.bat`、`setup_and_start_web.bat`
-- `README.md` 中包含运行说明与免责声明
-
-推荐上传到仓库的核心文件：
-
-- `README.md`
-- `requirements.txt`
-- `requirements-dev.txt`（可选）
-- `run.py`
-- `streamlit_app.py`
-- `start_cli.bat`
-- `start_web.bat`
-- `setup_and_start_web.bat`
-- `src/`（全部源码）
-- `AI 投研 Agent — PRD（V1） 786e92fe1f9344d98df99f46fe010eb0.md`（可选，产品文档）
-
-## GitHub 上传流程（命令行）
-
-```bash
-git init
-git add .
-git commit -m "feat: MVP of AI research agents with web visualization"
-git branch -M main
-git remote add origin <你的仓库地址>
-git push -u origin main
-```
-
-如果仓库已存在历史提交，先同步远端再推送：
-
-```bash
-git remote add origin <你的仓库地址>
-git fetch origin
-git pull origin main --allow-unrelated-histories
-git push -u origin main
-```
 
 ## 1. 安装依赖
 
