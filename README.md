@@ -1,6 +1,6 @@
-# AI 投研 Agent（开发中）
+# AI 投研 Agent
 
-当前进度：已完成 Agent 1（股票数据获取）、Agent 2（趋势分析）和 Agent 3（策略生成）MVP。
+当前进度：已完成 V1 的 4 个核心模块（数据获取、趋势分析、策略生成、结果展示）。
 
 ## 测试阶段运行方式（推荐）
 
@@ -24,7 +24,7 @@ python run.py
 python run.py --symbol 600519.SS --provider stooq --module strategy
 ```
 
-说明：Streamlit 页面建议在“结果展示模块”阶段再接入，当前测试阶段先保证分析链路稳定。
+说明：当前已支持 CLI 与 Streamlit 两种运行方式。
 
 ## 展示模块（G4）
 
@@ -64,15 +64,6 @@ cd "e:\vs code\jy"
 ```bash
 .\.venv\Scripts\python.exe -m streamlit run streamlit_app.py --server.port 8502
 ```
-
-### 为什么 GitHub 仓库网址不能直接运行网页
-
-GitHub 仓库页面只是“代码托管”，不是 Python 应用运行环境。
-
-- `http://localhost:8501` 只在你本机启动 Streamlit 后有效
-- 在 GitHub 页面里点击仓库链接，不会自动执行 `streamlit run`
-
-如果希望“别人点链接就能直接打开网页”，需要部署到在线平台（例如 Streamlit Community Cloud、Render、Railway 等）。
 
 ### 在线部署建议（可选）
 
@@ -161,7 +152,4 @@ python src/main.py AAPL --provider mock
 - 基于 MA / MACD / RSI 的趋势研判
 - 结构化风险提示输出
 - 基于趋势结果生成关注区间、目标价、止损价
-
-后续将继续接入：
-
-- 分析结果展示模块（CLI 增强 / Web 页面）
+- Streamlit 可视化展示（K 线图、分析报告、策略卡片、数据表）
