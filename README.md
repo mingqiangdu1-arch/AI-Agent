@@ -34,6 +34,7 @@ python run.py --symbol 600519.SS --provider stooq --module strategy
 - AI 趋势分析报告
 - 投资策略建议卡片
 - 最近交易数据表
+- 同花顺热榜（可选展示）
 
 ### 本地启动（推荐）
 
@@ -64,6 +65,14 @@ cd "e:\vs code\jy"
 ```bash
 .\.venv\Scripts\python.exe -m streamlit run streamlit_app.py --server.port 8502
 ```
+
+4. 同花顺热榜提示不可用：
+
+```bash
+.\.venv\Scripts\python.exe -m pip install akshare
+```
+
+若接口临时波动，页面会保留主分析结果并提示热榜失败原因。
 
 ### 在线部署建议（可选）
 

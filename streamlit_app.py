@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 from src.agents.data_fetch_agent import StockDataFetchAgent, StockDataRequest
+from src.agents.hot_rank_agent import HotRankRequest, THSHotRankAgent
 from src.agents.strategy_generation_agent import StrategyGenerationAgent
 from src.agents.trend_analysis_agent import TrendAnalysisAgent
 
@@ -33,6 +34,11 @@ def run_pipeline(symbol: str, provider: str, period: str, interval: str):
     trend_result = trend_agent.analyze(df)
     strategy_result = strategy_agent.generate(df, trend_result)
     return df, trend_result, strategy_result
+
+
+def fetch_hot_rank(limit: int) -> pd.DataFrame:
+    agent = THSHotRankAgent()
+    return agent.fetch(HotRankRequest(limit=limit))
 
 
 def build_candlestick(df: pd.DataFrame, symbol: str, go):
@@ -80,6 +86,8 @@ def render_page() -> None:
         provider = st.selectbox("数据源", options=["auto", "stooq", "yahoo", "mock"], index=0)
         period = st.selectbox("周期", options=["1mo", "3mo", "6mo", "1y", "2y"], index=2)
         interval = st.selectbox("K线间隔", options=["1d", "1wk"], index=0)
+        show_hot_rank = st.toggle("显示同花顺热榜", value=True)
+        hot_rank_limit = st.slider("热榜条数", min_value=10, max_value=100, value=20, step=10)
         run_btn = st.button("开始分析", type="primary", use_container_width=True)
 
     if "run_once" not in st.session_state:
@@ -135,6 +143,14 @@ def render_page() -> None:
     show_df = df.tail(30).copy()
     show_df.index = show_df.index.astype(str)
     st.dataframe(show_df, use_container_width=True)
+
+    if show_hot_rank:
+        st.subheader("同花顺热榜")
+        try:
+            hot_df = fetch_hot_rank(hot_rank_limit)
+            st.dataframe(hot_df, use_container_width=True)
+        except Exception as exc:
+            st.warning(f"同花顺热榜暂不可用: {exc}")
 
 
 if __name__ == "__main__":
