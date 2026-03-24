@@ -142,7 +142,7 @@ def render_page() -> None:
     show_df.index = show_df.index.astype(str)
     st.dataframe(show_df, use_container_width=True)
 
-    st.subheader("热榜 TOP10（默认同花顺）")
+    st.subheader("热榜 TOP10")
     try:
         hot_df = fetch_hot_rank(10)
         st.dataframe(hot_df, use_container_width=True)
