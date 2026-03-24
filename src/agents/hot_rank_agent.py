@@ -9,10 +9,11 @@ import pandas as pd
 @dataclass
 class HotRankRequest:
     limit: int = 20
+    preferred_source: str = "ths"
 
 
 class THSHotRankAgent:
-    """同花顺热榜抓取 Agent（优先通过 akshare）。"""
+    """热榜抓取 Agent（优先同花顺，失败时回退其他可用榜单）。"""
 
     def fetch(self, request: HotRankRequest) -> pd.DataFrame:
         try:
@@ -24,24 +25,47 @@ class THSHotRankAgent:
 
         call_errors: list[str] = []
         raw: pd.DataFrame | None = None
+        source_name = "未知来源"
 
-        for fn_name in ["stock_hot_rank_wc", "stock_hot_rank_ths", "stock_hot_rank_10jqka"]:
+        ths_candidates: list[tuple[str, dict, str]] = [
+            ("stock_hot_rank_wc", {}, "同花顺热榜"),
+            ("stock_hot_rank_ths", {}, "同花顺热榜"),
+            ("stock_hot_rank_10jqka", {}, "同花顺热榜"),
+        ]
+        em_candidates: list[tuple[str, dict, str]] = [
+            ("stock_hot_rank_em", {}, "东方财富热榜"),
+        ]
+        xq_candidates: list[tuple[str, dict, str]] = [
+            ("stock_hot_follow_xq", {"symbol": "最热门"}, "雪球热榜"),
+        ]
+
+        preferred = request.preferred_source.lower().strip()
+        if preferred == "em":
+            candidates = em_candidates + ths_candidates + xq_candidates
+        elif preferred == "xq":
+            candidates = xq_candidates + ths_candidates + em_candidates
+        else:
+            # 默认优先同花顺接口
+            candidates = ths_candidates + em_candidates + xq_candidates
+
+        for fn_name, kwargs, src in candidates:
             fn = getattr(ak, fn_name, None)
             if not callable(fn):
                 continue
             try:
-                maybe_df = fn()
+                maybe_df = fn(**kwargs)
                 if isinstance(maybe_df, pd.DataFrame) and not maybe_df.empty:
                     raw = maybe_df
+                    source_name = src
                     break
             except Exception as exc:
                 call_errors.append(f"{fn_name}: {exc}")
 
         if raw is None:
             detail = " | ".join(call_errors) if call_errors else "未找到可用热榜接口"
-            raise RuntimeError(f"同花顺热榜获取失败: {detail}")
+            raise RuntimeError(f"热榜获取失败: {detail}")
 
-        df = self._normalize(raw)
+        df = self._normalize(raw, source_name)
         return df.head(max(1, request.limit))
 
     @staticmethod
@@ -55,7 +79,7 @@ class THSHotRankAgent:
                 return str(col)
         return None
 
-    def _normalize(self, raw: pd.DataFrame) -> pd.DataFrame:
+    def _normalize(self, raw: pd.DataFrame, source_name: str) -> pd.DataFrame:
         df = raw.copy()
 
         code_col = self._pick_column(df, ["代码", "股票代码", "symbol", "证券代码"])
@@ -92,6 +116,6 @@ class THSHotRankAgent:
         if "排名" in out.columns:
             out = out.sort_values(by="排名", ascending=True)
 
-        out.insert(0, "来源", "同花顺热榜")
+        out.insert(0, "来源", source_name)
         out = out.reset_index(drop=True)
         return out

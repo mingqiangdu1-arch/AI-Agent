@@ -34,7 +34,7 @@ python run.py --symbol 600519.SS --provider stooq --module strategy
 - AI 趋势分析报告
 - 投资策略建议卡片
 - 最近交易数据表
-- 同花顺热榜（可选展示）
+- 热榜TOP10（默认同花顺，接口异常时自动回退）
 
 ### 本地启动（推荐）
 
@@ -47,7 +47,7 @@ cd "e:\vs code\jy"
 
 启动成功后浏览器访问：`http://localhost:8501`
 
-页面左侧可切换数据源（`auto/stooq/yahoo/mock`）与股票代码。
+页面左侧可切换数据源（`auto/stooq/yahoo/mock`）与股票代码；分析结果底部固定展示热榜TOP10（默认同花顺）。
 
 ### 常见问题
 

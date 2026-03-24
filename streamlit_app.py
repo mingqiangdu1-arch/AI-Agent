@@ -38,7 +38,7 @@ def run_pipeline(symbol: str, provider: str, period: str, interval: str):
 
 def fetch_hot_rank(limit: int) -> pd.DataFrame:
     agent = THSHotRankAgent()
-    return agent.fetch(HotRankRequest(limit=limit))
+    return agent.fetch(HotRankRequest(limit=limit, preferred_source="ths"))
 
 
 def build_candlestick(df: pd.DataFrame, symbol: str, go):
@@ -86,8 +86,6 @@ def render_page() -> None:
         provider = st.selectbox("数据源", options=["auto", "stooq", "yahoo", "mock"], index=0)
         period = st.selectbox("周期", options=["1mo", "3mo", "6mo", "1y", "2y"], index=2)
         interval = st.selectbox("K线间隔", options=["1d", "1wk"], index=0)
-        show_hot_rank = st.toggle("显示同花顺热榜", value=True)
-        hot_rank_limit = st.slider("热榜条数", min_value=10, max_value=100, value=20, step=10)
         run_btn = st.button("开始分析", type="primary", use_container_width=True)
 
     if "run_once" not in st.session_state:
@@ -144,13 +142,12 @@ def render_page() -> None:
     show_df.index = show_df.index.astype(str)
     st.dataframe(show_df, use_container_width=True)
 
-    if show_hot_rank:
-        st.subheader("同花顺热榜")
-        try:
-            hot_df = fetch_hot_rank(hot_rank_limit)
-            st.dataframe(hot_df, use_container_width=True)
-        except Exception as exc:
-            st.warning(f"同花顺热榜暂不可用: {exc}")
+    st.subheader("热榜 TOP10（默认同花顺）")
+    try:
+        hot_df = fetch_hot_rank(10)
+        st.dataframe(hot_df, use_container_width=True)
+    except Exception as exc:
+        st.warning(f"热榜暂不可用: {exc}")
 
 
 if __name__ == "__main__":
