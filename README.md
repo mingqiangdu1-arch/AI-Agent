@@ -30,9 +30,10 @@ python run.py --symbol 600519.SS --provider stooq --module strategy
 
 已实现 Streamlit 可视化页面，包含：
 
-- K 线图 + MA10/MA20
+- K 线图 + MA10/MA20/MA30 + 成交量
 - AI 趋势分析报告
 - 投资策略建议卡片
+- 可选 LLM 深度解读（顶部设置面板可配置）
 - 最近交易数据表
 - 热榜TOP10（接口异常时自动回退）
 
@@ -47,7 +48,78 @@ cd "e:\vs code\jy"
 
 启动成功后浏览器访问：`http://localhost:8501`
 
-页面左侧可切换数据源（`auto/stooq/yahoo/mock`）与股票代码；分析结果底部固定展示热榜TOP10。
+页面顶部参数栏可切换数据源（`auto/stooq/yahoo/mock`）与股票代码；分析结果底部固定展示热榜TOP10。
+
+### 网页配置 LLM（可选）
+
+顶部 `⚙️ 设置` 面板支持：
+
+- 开关：启用/关闭 AI 增强分析
+- 自动识别：输入 API Key 自动识别服务与默认模型（可关闭）
+- 模型服务：内置多家主流 OpenAI 兼容接口预设
+- 可配置项：`Base URL`、模型名称、`API Key`、`Temperature`、`Max Tokens`
+- 连通性测试：支持在保存前先测试接口可用性
+
+增强体验（不偏离 V1 单标的分析范围）：
+
+- API 连通状态徽标（未测试 / 正常 / 异常）
+- 连通性测试成功后可自动应用识别到的服务配置
+- 股票名称解析缓存（降低重复请求与页面延迟）
+- 一键下载分析报告（Markdown）
+- 额外展示 20 日波动率与量比（5日/20日）
+
+当前内置预设：
+
+- 阿里百炼(Qwen)
+- OpenAI
+- Gemini
+- DeepSeek
+- Moonshot(Kimi)
+- 智谱(GLM)
+- OpenRouter
+- 硅基流动(SiliconFlow)
+- 火山方舟(Ark)
+- 自定义(OpenAI兼容)
+
+说明：
+
+- 不开启 LLM 时，系统保持原有基础分析（MA/MACD/RSI + 策略生成）
+- 开启 LLM 但接口异常时，自动回退基础分析，不影响主流程
+- API Key 仅在当前会话内使用，代码中不硬编码密钥
+- 若 AI 解读内容过短，优先提高设置面板 `Max Tokens`（例如 1200-2400）并重试
+
+推荐环境变量：
+
+```bash
+# 阿里百炼
+DASHSCOPE_API_KEY=your_key
+
+# OpenAI
+OPENAI_API_KEY=your_key
+
+# Gemini
+GEMINI_API_KEY=your_key
+# 或
+GOOGLE_API_KEY=your_key
+
+# DeepSeek
+DEEPSEEK_API_KEY=your_key
+
+# Moonshot
+MOONSHOT_API_KEY=your_key
+
+# 智谱
+ZHIPUAI_API_KEY=your_key
+
+# OpenRouter
+OPENROUTER_API_KEY=your_key
+
+# 硅基流动
+SILICONFLOW_API_KEY=your_key
+
+# 火山方舟
+ARK_API_KEY=your_key
+```
 
 ### 常见问题
 
@@ -83,13 +155,6 @@ cd "e:\vs code\jy"
 3. `Main file path` 填 `streamlit_app.py`
 4. 部署完成后会得到公开访问链接
 
-## GitHub 发布建议（一键启动）
-
-为降低用户上手成本，仓库已提供 Windows 一键脚本：
-
-- `start_cli.bat`：启动命令行分析模式（会提示输入股票代码）
-- `start_web.bat`：启动 Streamlit 页面（依赖已安装时使用）
-- `setup_and_start_web.bat`：首次使用推荐，自动创建 `.venv`、安装依赖并启动页面
 
 推荐给新用户的最短路径：
 
@@ -162,3 +227,22 @@ python src/main.py AAPL --provider mock
 - 结构化风险提示输出
 - 基于趋势结果生成关注区间、目标价、止损价
 - Streamlit 可视化展示（K 线图、分析报告、策略卡片、数据表）
+
+## 6. 支持范围与建议
+
+当前支持的股票输入：
+
+- A 股：`000001`、`600519`、`000554.SZ`、`600519.SS`、`600519.SH`
+- 美股及其他 Yahoo 可识别代码：如 `AAPL`、`MSFT`
+
+数据源建议：
+
+- A 股优先使用 `auto`（已优化为优先 AkShare，再回退 Yahoo/Stooq）
+- 若 A 股仍失败，可手动切换 `--provider akshare`
+- 美股优先使用 `auto` / `yahoo`
+- 离线调试可使用 `mock`
+
+说明：
+
+- `akshare` 当前面向 A 股 6 位代码
+- `stooq` 对部分 A 股代码覆盖有限，建议作为回退数据源

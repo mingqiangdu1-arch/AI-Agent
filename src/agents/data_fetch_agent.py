@@ -39,6 +39,14 @@ class StockDataFetchAgent:
         "Volume": "volume",
     }
 
+    AK_COLUMNS = {
+        "开盘": "open",
+        "最高": "high",
+        "最低": "low",
+        "收盘": "close",
+        "成交量": "volume",
+    }
+
     def fetch(self, request: StockDataRequest) -> pd.DataFrame:
         symbol = request.symbol.strip().upper()
         if not symbol:
@@ -46,13 +54,23 @@ class StockDataFetchAgent:
         yahoo_symbol = self._to_yahoo_symbol(symbol)
 
         provider = request.provider.lower()
-        if provider not in {"auto", "yahoo", "stooq", "mock"}:
-            raise ValueError("provider 仅支持 auto / yahoo / stooq / mock")
+        if provider not in {"auto", "yahoo", "stooq", "akshare", "mock"}:
+            raise ValueError("provider 仅支持 auto / yahoo / stooq / akshare / mock")
 
         if provider == "mock":
             return self._fetch_mock(symbol=symbol)
 
         errors: list[str] = []
+
+        is_a_share = self._is_a_share_symbol(symbol)
+
+        if provider in {"auto", "akshare"} and is_a_share:
+            try:
+                return self._fetch_from_akshare(symbol=symbol, period=request.period, interval=request.interval)
+            except Exception as exc:
+                errors.append(f"AkShare: {exc}")
+                if provider == "akshare":
+                    raise ValueError(f"AkShare 获取失败: {exc}") from exc
 
         if provider in {"auto", "yahoo"}:
             try:
@@ -69,6 +87,9 @@ class StockDataFetchAgent:
                 errors.append(f"Stooq: {exc}")
                 if provider == "stooq":
                     raise ValueError(f"Stooq 获取失败: {exc}") from exc
+
+        if provider in {"auto", "akshare"} and not is_a_share and provider == "akshare":
+            raise ValueError(f"AkShare 目前仅支持 A 股 6 位代码，当前为: {symbol}")
 
         error_text = " | ".join(errors) if errors else "未知错误"
         raise ValueError(
@@ -120,6 +141,50 @@ class StockDataFetchAgent:
                 raw = raw.copy()
                 raw.columns = [str(c[0]) for c in raw.columns]
         return raw
+
+    def _fetch_from_akshare(self, symbol: str, period: str, interval: str) -> pd.DataFrame:
+        try:
+            import akshare as ak
+        except ModuleNotFoundError as exc:
+            raise ValueError("未安装 akshare，请先安装依赖。") from exc
+
+        code = self._to_cn_code(symbol)
+        if not code:
+            raise ValueError(f"仅支持 A 股 6 位代码，当前为: {symbol}")
+
+        raw = ak.stock_zh_a_hist(symbol=code, period="daily", adjust="")
+        if raw is None or raw.empty:
+            raise ValueError("返回空数据")
+
+        missing = [col for col in self.AK_COLUMNS if col not in raw.columns]
+        if missing:
+            raise ValueError(f"行情数据缺少必要字段: {missing}")
+
+        df = raw[["日期", *self.AK_COLUMNS.keys()]].copy()
+        df = df.rename(columns=self.AK_COLUMNS)
+        df["日期"] = pd.to_datetime(df["日期"], errors="coerce")
+        df = df.dropna(subset=["日期"]).sort_values("日期")
+        df = df.set_index("日期")
+        df.index = df.index.date
+        df.index.name = "date"
+
+        rows = self._rows_by_period(period=period, interval=interval)
+        if rows > 0:
+            df = df.tail(rows)
+        return df
+
+    @staticmethod
+    def _rows_by_period(period: str, interval: str) -> int:
+        base = {
+            "1mo": 25,
+            "3mo": 75,
+            "6mo": 130,
+            "1y": 260,
+            "2y": 520,
+        }.get(period, 260)
+        if interval == "1wk":
+            return max(8, base // 5)
+        return base
 
     def _fetch_from_stooq(self, symbol: str) -> pd.DataFrame:
         stooq_symbol = self._to_stooq_symbol(symbol)
@@ -206,6 +271,21 @@ class StockDataFetchAgent:
                 return f"{code}.SS"
 
         return s
+
+    @staticmethod
+    def _to_cn_code(symbol: str) -> Optional[str]:
+        s = symbol.strip().upper()
+        if s.isdigit() and len(s) == 6:
+            return s
+        if s.endswith((".SS", ".SH", ".SZ")):
+            code = s.split(".")[0]
+            if code.isdigit() and len(code) == 6:
+                return code
+        return None
+
+    @classmethod
+    def _is_a_share_symbol(cls, symbol: str) -> bool:
+        return cls._to_cn_code(symbol) is not None
 
     def fetch_to_records(self, request: StockDataRequest) -> list[dict]:
         df = self.fetch(request)

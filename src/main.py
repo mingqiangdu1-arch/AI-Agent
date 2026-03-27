@@ -21,9 +21,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--interval", default="1d", help="K 线间隔，如 1d/1wk")
     parser.add_argument(
         "--provider",
-        choices=["auto", "yahoo", "stooq", "mock"],
+        choices=["auto", "yahoo", "stooq", "akshare", "mock"],
         default="auto",
-        help="数据源，auto 会先 Yahoo 后 Stooq；mock 用于离线调试",
+        help="数据源，auto 会先 Yahoo 后 Stooq，再回退 AkShare；mock 用于离线调试",
     )
     parser.add_argument(
         "--format",

@@ -20,9 +20,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--provider",
-        choices=["auto", "yahoo", "stooq", "mock"],
+        choices=["auto", "yahoo", "stooq", "akshare", "mock"],
         default="auto",
-        help="默认真实数据（auto: Yahoo 失败自动回退 Stooq）；可切换 mock",
+        help="默认真实数据（auto: Yahoo/Stooq 失败自动回退 AkShare）；可切换 mock",
     )
     parser.add_argument("--period", default="6mo", help="数据周期，如 1mo/6mo/1y")
     parser.add_argument("--interval", default="1d", help="K 线间隔，如 1d/1wk")
