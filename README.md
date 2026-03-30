@@ -35,7 +35,7 @@ python run.py --symbol 600519.SS --provider stooq --module strategy
 - 投资策略建议卡片
 - 可选 LLM 深度解读（顶部设置面板可配置）
 - 最近交易数据表
-- 热榜TOP10（接口异常时自动回退）
+- 热榜TOP10（真实热榜失败时，可回退 LLM 生成结果）
 
 ### 本地启动（推荐）
 
@@ -49,6 +49,12 @@ cd "e:\vs code\jy"
 启动成功后浏览器访问：`http://localhost:8501`
 
 页面顶部参数栏可切换数据源（`auto/stooq/yahoo/mock`）与股票代码；分析结果底部固定展示热榜TOP10。
+
+热榜回退说明：
+
+- 默认优先真实热榜接口（同花顺优先）
+- 若真实接口失败，且已启用 AI 增强并配置可用 API Key，则自动回退 LLM 生成热榜
+- 回退结果来源列标记为 `同花顺`
 
 ### 网页配置 LLM（可选）
 
@@ -221,7 +227,7 @@ python src/main.py AAPL --provider mock
 - 输入股票代码
 - 获取历史开高低收量（OHLCV）
 - 输出标准化时间序列（表格或 JSON）
-- 双数据源兜底（`auto`: Yahoo -> Stooq）
+- 多数据源兜底（A 股 `auto`: AkShare -> Yahoo -> Stooq；全部失败时回退 `mock`）
 - 离线调试数据源（`mock`）
 - 基于 MA / MACD / RSI 的趋势研判
 - 结构化风险提示输出

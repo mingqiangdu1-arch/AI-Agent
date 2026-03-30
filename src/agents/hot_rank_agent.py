@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
-
 import pandas as pd
 
 
@@ -16,6 +14,7 @@ class THSHotRankAgent:
     """热榜抓取 Agent（优先同花顺，失败时回退其他可用榜单）。"""
 
     def fetch(self, request: HotRankRequest) -> pd.DataFrame:
+        limit = max(1, request.limit)
         try:
             import akshare as ak  # type: ignore
         except ModuleNotFoundError as exc:
@@ -35,18 +34,12 @@ class THSHotRankAgent:
         em_candidates: list[tuple[str, dict, str]] = [
             ("stock_hot_rank_em", {}, "东方财富热榜"),
         ]
-        xq_candidates: list[tuple[str, dict, str]] = [
-            ("stock_hot_follow_xq", {"symbol": "最热门"}, "雪球热榜"),
-        ]
-
         preferred = request.preferred_source.lower().strip()
         if preferred == "em":
-            candidates = em_candidates + ths_candidates + xq_candidates
-        elif preferred == "xq":
-            candidates = xq_candidates + ths_candidates + em_candidates
+            candidates = em_candidates + ths_candidates
         else:
             # 默认优先同花顺接口
-            candidates = ths_candidates + em_candidates + xq_candidates
+            candidates = ths_candidates + em_candidates
 
         for fn_name, kwargs, src in candidates:
             fn = getattr(ak, fn_name, None)
@@ -66,7 +59,7 @@ class THSHotRankAgent:
             raise RuntimeError(f"热榜获取失败: {detail}")
 
         df = self._normalize(raw, source_name)
-        return df.head(max(1, request.limit))
+        return df.head(limit)
 
     @staticmethod
     def _pick_column(df: pd.DataFrame, candidates: list[str]) -> str | None:

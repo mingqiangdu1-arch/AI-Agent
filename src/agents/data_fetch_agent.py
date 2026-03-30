@@ -47,6 +47,11 @@ class StockDataFetchAgent:
         "成交量": "volume",
     }
 
+    PROXY_ERROR_HINT = (
+        "检测到代理连接失败。可尝试切换 --provider auto/stooq/mock，"
+        "或检查并临时清理 HTTP_PROXY/HTTPS_PROXY/ALL_PROXY 环境变量。"
+    )
+
     def fetch(self, request: StockDataRequest) -> pd.DataFrame:
         symbol = request.symbol.strip().upper()
         if not symbol:
@@ -91,6 +96,9 @@ class StockDataFetchAgent:
         if provider in {"auto", "akshare"} and not is_a_share and provider == "akshare":
             raise ValueError(f"AkShare 目前仅支持 A 股 6 位代码，当前为: {symbol}")
 
+        if provider == "auto":
+            return self._fetch_mock(symbol=symbol)
+
         error_text = " | ".join(errors) if errors else "未知错误"
         raise ValueError(
             (
@@ -110,7 +118,7 @@ class StockDataFetchAgent:
         )
 
         if raw.empty:
-            raise ValueError("返回空数据")
+            raise ValueError("返回空数据（可能为 Yahoo 限流或网络限制）")
 
         raw = self._normalize_yahoo_raw(raw)
 
@@ -152,7 +160,12 @@ class StockDataFetchAgent:
         if not code:
             raise ValueError(f"仅支持 A 股 6 位代码，当前为: {symbol}")
 
-        raw = ak.stock_zh_a_hist(symbol=code, period="daily", adjust="")
+        try:
+            raw = ak.stock_zh_a_hist(symbol=code, period="daily", adjust="")
+        except Exception as exc:
+            if self._is_proxy_connection_error(exc):
+                raise ValueError(f"{exc}；{self.PROXY_ERROR_HINT}") from exc
+            raise
         if raw is None or raw.empty:
             raise ValueError("返回空数据")
 
@@ -172,6 +185,19 @@ class StockDataFetchAgent:
         if rows > 0:
             df = df.tail(rows)
         return df
+
+    @staticmethod
+    def _is_proxy_connection_error(exc: Exception) -> bool:
+        text = str(exc).lower()
+        return any(
+            key in text
+            for key in [
+                "proxyerror",
+                "unable to connect to proxy",
+                "httpsconnectionpool",
+                "remote end closed connection without response",
+            ]
+        )
 
     @staticmethod
     def _rows_by_period(period: str, interval: str) -> int:
@@ -196,7 +222,13 @@ class StockDataFetchAgent:
         except (HTTPError, URLError, TimeoutError) as exc:
             raise ValueError(f"请求失败: {exc}") from exc
 
-        raw = pd.read_csv(StringIO(csv_text))
+        if not csv_text.strip():
+            raise ValueError("返回空响应（可能被网络/代理拦截）")
+
+        try:
+            raw = pd.read_csv(StringIO(csv_text))
+        except pd.errors.EmptyDataError as exc:
+            raise ValueError("返回内容不可解析（可能被网络层替换或拦截）") from exc
         if raw.empty or "Date" not in raw.columns:
             raise ValueError("返回空数据")
 

@@ -120,6 +120,32 @@ def fetch_hot_rank(limit: int) -> pd.DataFrame:
     return agent.fetch(HotRankRequest(limit=limit, preferred_source="ths"))
 
 
+def fetch_hot_rank_with_llm_fallback(
+    limit: int,
+    llm_config: LLMAnalysisConfig | None,
+    market_type: str,
+) -> tuple[pd.DataFrame | None, str | None, bool]:
+    try:
+        return fetch_hot_rank(limit), None, False
+    except Exception as exc:
+        real_error = str(exc)
+        if llm_config is None or not llm_config.api_key:
+            return None, real_error, False
+
+        market_hint = "A股" if market_type == "domestic" else "美股"
+        llm_agent = LLMAnalysisAgent()
+        try:
+            hot_df = llm_agent.generate_hot_rank(
+                config=llm_config,
+                limit=limit,
+                market_hint=market_hint,
+                source_label="同花顺",
+            )
+            return hot_df, real_error, True
+        except Exception as llm_exc:
+            return None, f"{real_error} | LLM 热榜回退失败: {llm_exc}", False
+
+
 def resolve_stock_display_name(symbol: str, provider: str) -> str:
     symbol_clean = symbol.strip().upper()
     if not symbol_clean:
@@ -882,8 +908,14 @@ def render_page() -> None:
 
     st.markdown('<div class="gem-card">', unsafe_allow_html=True)
     st.subheader("热榜 TOP10")
-    try:
-        hot_df = fetch_hot_rank(10)
+    hot_df, hot_err, used_llm_fallback = fetch_hot_rank_with_llm_fallback(
+        limit=10,
+        llm_config=llm_config,
+        market_type=market_type,
+    )
+    if hot_df is not None:
+        if used_llm_fallback:
+            st.caption("真实热榜获取失败，已使用 LLM 回退生成。")
         if "涨跌幅" in hot_df.columns:
             hot_df_styled = hot_df.style.map(
                 lambda v: _style_change_cell(v, market_colors),
@@ -892,8 +924,8 @@ def render_page() -> None:
             st.dataframe(hot_df_styled, use_container_width=True)
         else:
             st.dataframe(hot_df, use_container_width=True)
-    except Exception as exc:
-        st.markdown(f'<div class="gem-alert">热榜暂不可用: {exc}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div class="gem-alert">热榜暂不可用: {hot_err}</div>', unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 

@@ -23,7 +23,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--provider",
         choices=["auto", "yahoo", "stooq", "akshare", "mock"],
         default="auto",
-        help="数据源，auto 会先 Yahoo 后 Stooq，再回退 AkShare；mock 用于离线调试",
+        help="数据源，A 股下 auto 优先 AkShare，再回退 Yahoo/Stooq；mock 用于离线调试",
     )
     parser.add_argument(
         "--format",
