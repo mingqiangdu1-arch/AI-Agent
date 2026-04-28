@@ -1,6 +1,6 @@
 @echo off
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 if not exist ".venv\Scripts\python.exe" (
   echo [ERROR] Python virtual environment not found: .venv
@@ -9,11 +9,11 @@ if not exist ".venv\Scripts\python.exe" (
   exit /b 1
 )
 
-echo [INFO] Starting CLI mode...
-".venv\Scripts\python.exe" run.py --module strategy
+echo [INFO] Starting Streamlit web app...
+".venv\Scripts\python.exe" -m streamlit run v1\streamlit_app.py
 
 if errorlevel 1 (
-  echo [ERROR] CLI startup failed.
+  echo [ERROR] Streamlit startup failed.
   pause
   exit /b 1
 )

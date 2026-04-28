@@ -1,6 +1,6 @@
 @echo off
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 if not exist ".venv\Scripts\python.exe" (
   echo [INFO] Creating virtual environment...
@@ -22,6 +22,6 @@ if errorlevel 1 (
 )
 
 echo [INFO] Launching Streamlit...
-".venv\Scripts\python.exe" -m streamlit run streamlit_app.py
+".venv\Scripts\python.exe" -m streamlit run v1\streamlit_app.py
 
 endlocal

@@ -1,254 +1,150 @@
 # AI 投研 Agent
 
-当前进度：已完成 V1 的 4 个核心模块（数据获取、趋势分析、策略生成、结果展示）。
+**AI 驱动的自动化投研分析工具**
 
-## 测试阶段运行方式（推荐）
+---
 
-当前阶段建议优先使用 `run.py` 进行联调，原因：
+## 项目简介
 
-- 启动参数更少，默认即可跑通完整链路
-- 默认真实数据源（`auto`），并支持一键切换
-- 方便快速验证 Agent 1/2/3 的逻辑正确性
+手动投研需要在行情软件、数据源、指标计算之间反复切换——拉数据、算均线、看 MACD、估目标位、定止损，流程长且重复。
 
-运行完整链路（默认 strategy + auto）：
+AI 投研 Agent 把这一切压缩为一次点击：选好标的和周期，系统自动走完从行情拉取到策略输出的全部计算，在一个页面上集中呈现结构化结论。面向个人投资者、独立交易员及需要快速获取投研参考的研究者。
 
-```bash
-python run.py
+---
+
+## 核心功能
+
+### 行情接入
+
+覆盖 A 股、美股及国际市场标的。内置多行情源自动切换——A 股优先国内数据、美股优先国际行情——任一源不可用时无缝回退。支持 1 个月至 2 年回溯周期，日线 / 周线两种粒度。
+
+### 趋势研判
+
+基于均线系统、MACD、RSI 等多维度信号，自动输出趋势方向（上涨 / 下跌 / 震荡）及信赖度评分，同时标注值得关注的技术风险——超买超卖、量价背离、波动率异常等。
+
+### 策略参考
+
+根据趋势结论与市场波幅，自动推算三个关键价位：
+- **关注区间** — 入场参考范围
+- **目标价位** — 基于波动率的上行预期
+- **止损参考** — 动态风险预算
+
+同步梳理标的风险维度，辅助仓位与风控判断。
+
+### 市场热榜
+
+实时展示同花顺 / 东方财富热门个股排名，数据源不可用时自动生成备选榜单，确保模块始终可用。
+
+### AI 深度解读
+
+可选接入大语言模型（DeepSeek、Qwen、GPT-4o、Gemini 等），生成叙述性投研解读。不启用时基础分析能力不受任何影响。
+
+### 可视化呈现
+
+交互式 K 线图叠加均线系统与成交量，颜色自动适配市场习惯（国内红涨绿跌、海外绿涨红跌）。支持一键导出 Markdown 报告。
+
+---
+
+## 系统架构
+
+```text
+输入标的与周期
+      │
+      ▼
+  行情接入 ──── 从多源拉取历史数据，自动容错切换
+      │
+      ▼
+  趋势研判 ──── 计算均线/MACD/RSI，输出方向与置信度
+      │
+      ▼
+  策略参考 ──── 基于波幅推算关注区间/目标价/止损位
+      │
+      ▼
+  结果呈现 ──── 图表 + 指标卡片 + 策略面板 + 报告下载
 ```
 
-不传 `--symbol` 时，程序会在运行时提示输入股票代码。
+系统采用 Streamlit 单体应用架构，所有功能在一个进程内完成。每次分析独立运行完整流水线，不依赖持久化存储。LLM 增强层为可选环节，失败时自动回退，不中断使用。
 
-切换到真实数据（推荐 stooq）：
+---
 
-```bash
-python run.py --symbol 600519.SS --provider stooq --module strategy
-```
+## Demo
 
-说明：当前已支持 CLI 与 Streamlit 两种运行方式。
+以 **贵州茅台（600519.SS）** 为例，选择近半年日线数据：
 
-## 展示模块（G4）
+| 参数 | 取值 |
+|------|------|
+| 股票代码 | `600519.SS` |
+| 数据源 | 自动 |
+| 周期 | 6 个月 |
+| 粒度 | 日线 |
 
-已实现 Streamlit 可视化页面，包含：
+**趋势研判输出：**
 
-- K 线图 + MA10/MA20/MA30 + 成交量
-- AI 趋势分析报告
-- 投资策略建议卡片
-- 可选 LLM 深度解读（顶部设置面板可配置）
-- 最近交易数据表
-- 热榜TOP10（真实热榜失败时，可回退 LLM 生成结果）
+| 指标 | 结果 |
+|------|------|
+| 最新收盘价 | ¥1,658.50 |
+| 趋势方向 | 上涨（信赖度 78%） |
+| 均线研判 | 短中期均线多头排列，价格位于均线上方 |
+| MACD 研判 | MACD 位于信号线上方，动能偏多 |
+| RSI 研判 | RSI 62.3，中性区间 |
 
-### 本地启动（推荐）
+主动风险提示：超买信号需防范回调，MACD 动能边际减弱。
 
-Windows PowerShell：
+**策略参考输出：**
 
-```bash
-cd "e:\vs code\jy"
-.\.venv\Scripts\python.exe -m streamlit run streamlit_app.py
-```
+| 决策维度 | 参考建议 |
+|----------|----------|
+| 操作建议 | 建议近期关注 |
+| 关注区间 | ¥1,620.00 — ¥1,658.50 |
+| 目标价位 | ¥1,714.00 |
+| 止损参考 | ¥1,590.00 |
 
-启动成功后浏览器访问：`http://localhost:8501`
+**界面布局：**
 
-页面顶部参数栏可切换数据源（`auto/stooq/yahoo/mock`）与股票代码；分析结果底部固定展示热榜TOP10。
+- **指标卡** — 趋势方向（含进度条）、最新价与涨跌幅、首要风险、波动率与量比
+- **K 线图** — 120 日 Candlestick + MA10/MA20/MA30 均线 + 成交量柱
+- **策略面板** — 双栏展开均线/MACD/RSI 详情与关键价位
+- **底部区** — 实时热榜、行情明细、Markdown 报告一键下载
 
-热榜回退说明：
+---
 
-- 默认优先真实热榜接口（同花顺优先）
-- 若真实接口失败，且已启用 AI 增强并配置可用 API Key，则自动回退 LLM 生成热榜
-- 回退结果来源列标记为 `同花顺`
+## 快速启动
 
-### 网页配置 LLM（可选）
-
-顶部 `⚙️ 设置` 面板支持：
-
-- 开关：启用/关闭 AI 增强分析
-- 自动识别：输入 API Key 自动识别服务与默认模型（可关闭）
-- 模型服务：内置多家主流 OpenAI 兼容接口预设
-- 可配置项：`Base URL`、模型名称、`API Key`、`Temperature`、`Max Tokens`
-- 连通性测试：支持在保存前先测试接口可用性
-
-增强体验（不偏离 V1 单标的分析范围）：
-
-- API 连通状态徽标（未测试 / 正常 / 异常）
-- 连通性测试成功后可自动应用识别到的服务配置
-- 股票名称解析缓存（降低重复请求与页面延迟）
-- 一键下载分析报告（Markdown）
-- 额外展示 20 日波动率与量比（5日/20日）
-
-当前内置预设：
-
-- 阿里百炼(Qwen)
-- OpenAI
-- Gemini
-- DeepSeek
-- Moonshot(Kimi)
-- 智谱(GLM)
-- OpenRouter
-- 硅基流动(SiliconFlow)
-- 火山方舟(Ark)
-- 自定义(OpenAI兼容)
-
-说明：
-
-- 不开启 LLM 时，系统保持原有基础分析（MA/MACD/RSI + 策略生成）
-- 开启 LLM 但接口异常时，自动回退基础分析，不影响主流程
-- API Key 仅在当前会话内使用，代码中不硬编码密钥
-- 若 AI 解读内容过短，优先提高设置面板 `Max Tokens`（例如 1200-2400）并重试
-
-推荐环境变量：
+### 1. 安装
 
 ```bash
-# 阿里百炼
-DASHSCOPE_API_KEY=your_key
-
-# OpenAI
-OPENAI_API_KEY=your_key
-
-# Gemini
-GEMINI_API_KEY=your_key
-# 或
-GOOGLE_API_KEY=your_key
-
-# DeepSeek
-DEEPSEEK_API_KEY=your_key
-
-# Moonshot
-MOONSHOT_API_KEY=your_key
-
-# 智谱
-ZHIPUAI_API_KEY=your_key
-
-# OpenRouter
-OPENROUTER_API_KEY=your_key
-
-# 硅基流动
-SILICONFLOW_API_KEY=your_key
-
-# 火山方舟
-ARK_API_KEY=your_key
+python -m venv .venv
+.\.venv\Scripts\pip install -r requirements.txt
 ```
 
-### 常见问题
+### 2. 启动
 
-1. 双击运行 `streamlit_app.py` 报错：
-必须使用 `streamlit run` 启动，不能直接按普通 Python 脚本运行。
-
-2. 报错缺少 `streamlit` 或 `plotly`：
+Web 界面（推荐）：
 
 ```bash
-.\.venv\Scripts\python.exe -m pip install streamlit plotly
+.\.venv\Scripts\python.exe -m streamlit run v1\streamlit_app.py
 ```
 
-3. 8501 端口被占用：
+浏览器访问 `http://localhost:8501`。或双击 `v1/start_web.bat`。
+
+命令行模式：
 
 ```bash
-.\.venv\Scripts\python.exe -m streamlit run streamlit_app.py --server.port 8502
+.\.venv\Scripts\python.exe v1/run.py AAPL --module strategy
 ```
 
-4. 同花顺热榜提示不可用：
+或双击 `v1/start_cli.bat`。
 
-```bash
-.\.venv\Scripts\python.exe -m pip install akshare
-```
+### 3. 常见问题
 
-若接口临时波动，页面会保留主分析结果并提示热榜失败原因。
+| 现象 | 解决 |
+|------|------|
+| 缺少 streamlit | 确认已执行 `pip install -r requirements.txt` |
+| 端口被占用 | 追加 `--server.port 8502` |
+| 热榜加载失败 | 不影响主分析，稍后重试 |
+| 数据量不足报错 | 将周期调大为 `6mo` 或 `1y` |
+| A 股数据为空 | 切换数据源为 stooq 或 mock |
 
-### 在线部署建议（可选）
+---
 
-可使用 Streamlit Community Cloud：
-
-1. 将项目推送到 GitHub
-2. 在 Streamlit Cloud 选择该仓库与分支
-3. `Main file path` 填 `streamlit_app.py`
-4. 部署完成后会得到公开访问链接
-
-
-推荐给新用户的最短路径：
-
-1. 双击 `setup_and_start_web.bat`
-2. 浏览器打开 `http://localhost:8501`
-3. 在页面左侧输入股票代码并开始分析
-
-## 1. 安装依赖
-
-```bash
-pip install -r requirements.txt
-```
-
-## 2. 运行 Agent 1
-
-```bash
-python src/main.py AAPL
-```
-
-## 3. 运行 Agent 2（趋势分析）
-
-```bash
-python src/main.py 600519.SS --module trend --provider stooq
-```
-
-JSON 输出：
-
-```bash
-python src/main.py AAPL --module trend --provider mock --format json
-```
-
-## 4. 运行 Agent 3（策略生成）
-
-```bash
-python src/main.py 600519.SS --module strategy --provider stooq
-```
-
-JSON 输出：
-
-```bash
-python src/main.py AAPL --module strategy --provider mock --format json
-```
-
-示例（输出 JSON）：
-
-```bash
-python src/main.py 600519.SS --period 1y --interval 1d --format json --limit 10
-```
-
-如遇 Yahoo 限流，可显式切换到 Stooq：
-
-```bash
-python src/main.py AAPL --provider stooq
-```
-
-如在本地网络受限，可使用离线调试数据：
-
-```bash
-python src/main.py AAPL --provider mock
-```
-
-## 5. 当前实现范围
-
-- 输入股票代码
-- 获取历史开高低收量（OHLCV）
-- 输出标准化时间序列（表格或 JSON）
-- 多数据源兜底（A 股 `auto`: AkShare -> Yahoo -> Stooq；全部失败时回退 `mock`）
-- 离线调试数据源（`mock`）
-- 基于 MA / MACD / RSI 的趋势研判
-- 结构化风险提示输出
-- 基于趋势结果生成关注区间、目标价、止损价
-- Streamlit 可视化展示（K 线图、分析报告、策略卡片、数据表）
-
-## 6. 支持范围与建议
-
-当前支持的股票输入：
-
-- A 股：`000001`、`600519`、`000554.SZ`、`600519.SS`、`600519.SH`
-- 美股及其他 Yahoo 可识别代码：如 `AAPL`、`MSFT`
-
-数据源建议：
-
-- A 股优先使用 `auto`（已优化为优先 AkShare，再回退 Yahoo/Stooq）
-- 若 A 股仍失败，可手动切换 `--provider akshare`
-- 美股优先使用 `auto` / `yahoo`
-- 离线调试可使用 `mock`
-
-说明：
-
-- `akshare` 当前面向 A 股 6 位代码
-- `stooq` 对部分 A 股代码覆盖有限，建议作为回退数据源
+*免责声明：本产品仅用于投研辅助参考，不构成任何投资建议。*
