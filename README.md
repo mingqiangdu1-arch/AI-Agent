@@ -2,8 +2,6 @@
 
 **AI 驱动的自动化投研分析工具**
 
-> V2 版本：FastAPI 后端 + 原生 JS 前端。在线体验：[GitHub Pages](https://mingqiangdu1-arch.github.io/AI-Agent)
-
 ---
 
 ## 项目简介
@@ -50,29 +48,25 @@ AI 投研 Agent 把这一切压缩为一次点击：选好标的和周期，系�
 ## 系统架构
 
 ```text
-                         ┌─────────────────────┐
-                         │   GitHub Pages       │
-                         │   静态前端 (HTML/JS)  │
-                         └────────┬────────────┘
-                                  │ HTTP API
-                                  ▼
-                         ┌─────────────────────┐
-                         │   Render / 本地      │
-                         │   FastAPI 后端       │
-                         └────────┬────────────┘
-                                  │
-                    ┌─────────────┼─────────────┐
-                    ▼             ▼             ▼
-              行情接入        趋势研判       策略参考
-          (多源自动切换)   (MA/MACD/RSI)   (目标/止损)
-                    │             │             │
-                    └─────────────┼─────────────┘
-                                  ▼
-                            LLM 增强层
-                          (可选，失败回退)
+输入标的与周期
+      │
+      ▼
+  行情接入 ──── 从多源拉取历史数据，自动容错切换
+      │
+      ▼
+  趋势研判 ──── 计算均线/MACD/RSI，输出方向与置信度
+      │
+      ▼
+  策略参考 ──── 基于波幅推算关注区间/目标价/止损位
+      │
+      ▼
+  LLM 增强 ──── AI 深度解读（可选，失败自动回退）
+      │
+      ▼
+  结果呈现 ──── 图表 + 指标卡片 + 策略面板 + 报告下载
 ```
 
-前后端分离架构。前端为原生 JavaScript SPA，后端为 FastAPI REST API。LLM 增强层为可选环节，失败时自动回退，不中断使用。
+V2 采用 FastAPI + 原生 JavaScript 前后端分离架构。每次分析独立运行完整流水线，不依赖持久化存储。
 
 ---
 
@@ -145,20 +139,6 @@ copy .env.example .env
 
 浏览器访问 `http://localhost:8000`。或双击 `start_api_v2.bat`（Windows）/ `bash start_api_v2.sh`（Linux）。
 
-### 方式二：在线使用
-
-前端已部署至 GitHub Pages，后端托管于 Render。
-
-- 前端地址：`https://mingqiangdu1-arch.github.io/AI-Agent`
-- 后端 API：`https://ai-agent-api.onrender.com`
-
-### 方式三：Docker（待支持）
-
-```bash
-docker build -t ai-agent .
-docker run -p 8000:8000 --env-file .env ai-agent
-```
-
 ### 常见问题
 
 | 现象 | 解决 |
@@ -169,54 +149,6 @@ docker run -p 8000:8000 --env-file .env ai-agent
 | 数据量不足报错 | 将周期调大为 `6mo` 或 `1y` |
 | A 股数据为空 | 切换数据源为 stooq 或 mock |
 | LLM 未配置 | 不影响基础分析，跳过 AI 深度解读 |
-
----
-
-## 项目结构
-
-```text
-├── frontend_v2/          # 前端（静态 SPA）
-│   ├── index.html
-│   ├── app.js            # 核心逻辑（API_BASE 配置在此）
-│   ├── styles.css
-│   └── chart.umd.js
-├── src/
-│   ├── api/              # FastAPI 路由 + schemas
-│   ├── core/             # 配置 + 数据模型
-│   ├── services/         # 分析/缓存/LLM/新闻/板块服务
-│   └── agents/           # 数据抓取/趋势/策略/热榜/LLM agent
-├── prompts/              # LLM 提示词模板
-├── requirements.txt
-├── render.yaml           # Render 部署配置
-├── start_api_v2.bat      # Windows 启动脚本
-├── start_api_v2.sh       # Linux 启动脚本
-└── .env.example          # 环境变量模板
-```
-
----
-
-## 部署
-
-### GitHub Pages（前端）
-
-推送 `main` 分支后，`.github/workflows/deploy-pages.yml` 自动部署 `frontend_v2/` 到 GitHub Pages。
-
-### Render（后端）
-
-1. 在 [Render](https://render.com) 创建新的 Web Service
-2. 连接 GitHub 仓库
-3. Render 自动识别 `render.yaml` 配置
-4. 在 Render Dashboard 设置 `LLM_API_KEY` 等环境变量
-
-### 环境变量
-
-| 变量 | 必填 | 说明 |
-|------|:---:|------|
-| `LLM_BASE_URL` | 否 | LLM API 地址（默认 DeepSeek） |
-| `LLM_API_KEY` | 否 | LLM API 密钥（不设置则跳过 AI 解读） |
-| `LLM_MODEL` | 否 | 模型名称（默认 deepseek-v4-flash） |
-| `LLM_TEMPERATURE` | 否 | 生成温度（默认 0.3） |
-| `LLM_MAX_TOKENS` | 否 | 最大 token 数（默认 2000） |
 
 ---
 
