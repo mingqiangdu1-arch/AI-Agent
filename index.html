@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>智研投 · AI 投研分析</title>
+  <link rel="stylesheet" href="styles.css?v=4.6">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="chart.umd.js"></script>
+</head>
+<body>
+
+<div class="app-layout">
+
+  <!-- ===== 侧边栏 ===== -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <i class="fas fa-chart-line"></i>
+      <span>智研投</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="sidebar-item active" data-tab="analysis">
+        <i class="fas fa-search-dollar"></i> 投研分析
+      </button>
+      <button class="sidebar-item" data-tab="hotlist">
+        <i class="fas fa-fire"></i> 市场热榜
+      </button>
+      <button class="sidebar-item" data-tab="sector">
+        <i class="fas fa-th-large"></i> 板块推荐
+      </button>
+      <button class="sidebar-item" data-tab="report">
+        <i class="fas fa-file-alt"></i> 研报中心
+      </button>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <button id="llmToggle" class="sidebar-tool" title="AI 增强分析">
+        <i class="fas fa-robot"></i> AI 增强
+        <span id="aiHint" class="ai-badge">OFF</span>
+      </button>
+      <button id="settingsBtn" class="sidebar-tool" title="系统状态">
+        <i class="fas fa-cog"></i> 系统状态
+      </button>
+    </div>
+  </aside>
+
+  <!-- ===== 主内容区 ===== -->
+  <main class="main-content">
+
+    <!-- ========== 投研分析（首页） ========== -->
+    <section id="analysisTab" class="tab-page active">
+
+      <!-- 加载骨架 -->
+      <div id="skeletonLoader" class="skeleton-loader hidden">
+        <div class="sk-block sk-search"></div>
+        <div class="sk-row"><div class="sk-card"></div><div class="sk-card"></div></div>
+        <div class="sk-block sk-chart"></div>
+        <div class="sk-row"><div class="sk-card sm"></div><div class="sk-card sm"></div><div class="sk-card sm"></div></div>
+      </div>
+
+      <!-- 搜索区 -->
+      <div class="hero-search">
+        <div class="hero-search-inner">
+          <div class="search-pill-wrap">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" id="symbol" class="search-pill-input" value="AAPL"
+                   placeholder="输入股票代码或名称，如 AAPL、贵州茅台、00700" list="symbolList" autofocus>
+            <span id="symbolName" class="symbol-name-badge"></span>
+          </div>
+          <div class="search-options">
+            <select id="period">
+              <option value="1mo">1个月</option><option value="3mo">3个月</option>
+              <option value="6mo" selected>6个月</option><option value="1y">1年</option><option value="2y">2年</option>
+            </select>
+            <select id="interval">
+              <option value="1d" selected>日线</option><option value="1wk">周线</option><option value="1mo">月线</option>
+            </select>
+            <button id="analyzeBtn" class="primary-btn primary-btn-lg">
+              <i class="fas fa-play"></i> 开始分析
+            </button>
+          </div>
+        </div>
+        <datalist id="symbolList">
+          <option value="AAPL">苹果</option><option value="MSFT">微软</option><option value="GOOGL">谷歌</option>
+          <option value="NVDA">英伟达</option><option value="TSLA">特斯拉</option><option value="META">Meta</option>
+          <option value="600519">贵州茅台</option><option value="000858">五粮液</option>
+          <option value="002594">比亚迪</option><option value="300750">宁德时代</option>
+          <option value="601318">中国平安</option><option value="00700">腾讯控股</option>
+        </datalist>
+      </div>
+
+      <div id="statusBar" class="status-bar hidden">
+        <div class="status-content">
+          <div class="status-spinner"></div>
+          <span id="statusText">正在获取数据...</span>
+        </div>
+        <div class="pipeline-status">
+          <span class="pipe-step" id="pipe1"><i class="fas fa-circle-notch"></i> 数据</span>
+          <span class="pipe-step" id="pipe2"><i class="fas fa-circle-notch"></i> 趋势</span>
+          <span class="pipe-step" id="pipe3"><i class="fas fa-circle-notch"></i> 策略</span>
+        </div>
+      </div>
+
+      <div id="resultArea" class="result-area hidden">
+
+        <!-- 股票概览 + AI决策 -->
+        <div class="overview-row">
+          <div class="stock-overview-card glass-card">
+            <div class="ov-left">
+              <div id="stockNameDisplay" class="ov-name">--</div>
+              <div class="ov-meta">
+                <span id="stockCodeDisplay" class="ov-code">--</span>
+              </div>
+            </div>
+            <div class="ov-right">
+              <div id="stockPrice" class="ov-price">--</div>
+              <div id="stockChange" class="ov-change">--</div>
+            </div>
+          </div>
+
+          <div class="ai-decision-card glass-card">
+            <div class="ai-score-ring" id="aiScoreRing">
+              <svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="34" class="ai-ring-bg"/><circle cx="40" cy="40" r="34" class="ai-ring-fg" id="aiRingFg"/></svg>
+              <span class="ai-score-num" id="aiScoreNum">--</span>
+            </div>
+            <div class="ai-decision-info">
+              <div class="ai-decision-header">
+                <span id="aiDecisionLabel" class="ai-badge">--</span>
+                <span id="aiConfidence" class="ai-confidence">置信度 --</span>
+              </div>
+              <div class="ai-targets">
+                <div class="ai-target-item"><span>目标价</span><strong id="aiTargetPrice">--</strong></div>
+                <div class="ai-target-item"><span>止损位</span><strong id="aiStopLoss">--</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 走势图 -->
+        <div class="chart-section glass-card">
+          <div class="chart-header">
+            <h3><i class="fas fa-chart-area"></i> 走势图</h3>
+            <div class="chart-controls">
+              <button class="chart-ctrl active" data-type="line">折线</button>
+              <button class="chart-ctrl" data-type="candle">K线</button>
+            </div>
+          </div>
+          <div class="chart-container"><canvas id="priceChart"></canvas></div>
+        </div>
+
+        <!-- 技术指标 + 策略 + 热门 -->
+        <div class="details-row">
+          <div class="detail-card glass-card">
+            <h3><i class="fas fa-chart-bar"></i> 技术指标</h3>
+            <div id="indicatorList" class="indicator-grid"></div>
+          </div>
+          <div class="detail-card glass-card">
+            <h3><i class="fas fa-bullseye"></i> 策略详情</h3>
+            <div id="strategyList" class="strategy-grid"></div>
+          </div>
+          <div class="detail-card glass-card hot-card">
+            <h3><i class="fas fa-fire"></i> 热门监控</h3>
+            <div class="table-wrap">
+              <table id="hotTable">
+                <thead><tr><th>#</th><th>代码</th><th>名称</th><th>涨跌幅</th><th>热度</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- 风险预警 -->
+        <div class="risk-section glass-card">
+          <h3><i class="fas fa-shield-alt"></i> 风险预警</h3>
+          <div id="riskList" class="risk-tags"></div>
+        </div>
+
+        <!-- AI 深度分析 -->
+        <div id="llmSection" class="analysis-cards">
+          <div class="analysis-header">
+            <h3><i class="fas fa-robot"></i> AI 深度分析</h3>
+            <span id="llmMeta" class="llm-meta">未执行</span>
+          </div>
+
+          <div id="llmSummary" class="llm-summary-text">开启侧边栏「AI 增强」后展示深度分析</div>
+
+          <!-- 趋势分析 -->
+          <div class="ac-card">
+            <div class="ac-header" data-ac="trend">
+              <div class="ac-header-left">
+                <i class="fas fa-chart-line ac-icon"></i>
+                <span>趋势分析</span>
+                <span id="trendBadge" class="ac-badge">--</span>
+              </div>
+              <i class="fas fa-chevron-down ac-arrow"></i>
+            </div>
+            <div class="ac-body" id="acTrendBody">
+              <div class="ac-meters" id="trendMeters"></div>
+            </div>
+          </div>
+
+          <!-- 投资论点 -->
+          <div class="ac-card">
+            <div class="ac-header" data-ac="thesis">
+              <div class="ac-header-left">
+                <i class="fas fa-balance-scale ac-icon"></i>
+                <span>投资论点</span>
+              </div>
+              <i class="fas fa-chevron-down ac-arrow"></i>
+            </div>
+            <div class="ac-body" id="acThesisBody">
+              <div class="ac-split">
+                <div class="ac-col bullish">
+                  <h4><i class="fas fa-arrow-up" style="color:var(--up-color)"></i> 看多因素</h4>
+                  <ul id="bullishFactors"></ul>
+                </div>
+                <div class="ac-col bearish">
+                  <h4><i class="fas fa-arrow-down" style="color:var(--down-color)"></i> 看空因素</h4>
+                  <ul id="bearishFactors"></ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 风险分析 -->
+          <div class="ac-card">
+            <div class="ac-header" data-ac="risk">
+              <div class="ac-header-left">
+                <i class="fas fa-shield-alt ac-icon" style="color:var(--down-color)"></i>
+                <span>风险分析</span>
+                <span id="riskCountBadge" class="ac-badge risk">0</span>
+              </div>
+              <i class="fas fa-chevron-down ac-arrow"></i>
+            </div>
+            <div class="ac-body" id="acRiskBody">
+              <div id="riskAnalysisList" class="ac-risk-list"></div>
+            </div>
+          </div>
+
+          <!-- 最终建议 -->
+          <div class="ac-card ac-recommendation">
+            <div class="ac-header" data-ac="recommend">
+              <div class="ac-header-left">
+                <i class="fas fa-gem ac-icon" style="color:var(--accent)"></i>
+                <span>最终建议</span>
+              </div>
+              <i class="fas fa-chevron-down ac-arrow"></i>
+            </div>
+            <div class="ac-body" id="acRecommendBody">
+              <div class="ac-recommend-content"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 市场新闻 -->
+        <div id="newsSection" class="news-section glass-card">
+          <div class="news-header">
+            <h3><i class="fas fa-newspaper"></i> 市场新闻</h3>
+            <div class="news-sentiment-badge" id="newsSentimentBadge">
+              <span id="newsSentimentLabel">--</span>
+              <span id="newsSentimentConfidence" class="confidence-text">置信度 --</span>
+            </div>
+          </div>
+          <div class="news-stats" id="newsStats">
+            <div class="news-stat positive"><span class="stat-count" id="newsPositive">0</span><span class="stat-label">利好</span></div>
+            <div class="news-stat neutral"><span class="stat-count" id="newsNeutral">0</span><span class="stat-label">中性</span></div>
+            <div class="news-stat negative"><span class="stat-count" id="newsNegative">0</span><span class="stat-label">利空</span></div>
+          </div>
+          <div class="news-list" id="newsList"></div>
+        </div>
+      </div>
+
+      <div id="emptyState" class="empty-state">
+        <i class="fas fa-search-dollar"></i>
+        <h3>输入代码开始分析</h3>
+        <p>支持 A股、美股、港股及国际市场标的</p>
+      </div>
+    </section>
+
+    <!-- ========== 市场热榜 ========== -->
+    <section id="hotlistTab" class="tab-page">
+      <!-- 大盘指数 -->
+      <div class="market-indices" id="marketIndices">
+        <div class="mi-card"><div class="mi-skeleton"></div></div>
+        <div class="mi-card"><div class="mi-skeleton"></div></div>
+        <div class="mi-card"><div class="mi-skeleton"></div></div>
+      </div>
+
+      <!-- 工具栏 -->
+      <div class="hot-toolbar">
+        <div class="hot-tabs">
+          <button class="hot-tab active" data-limit="20">TOP 20</button>
+          <button class="hot-tab" data-limit="50">TOP 50</button>
+        </div>
+        <div class="hot-search-wrap">
+          <i class="fas fa-search hot-search-icon"></i>
+          <input type="text" id="hotSearch" class="hot-search-input" placeholder="筛选代码或名称...">
+        </div>
+        <select id="hotSource" class="hot-source-select">
+          <option value="ths">同花顺热榜</option>
+          <option value="east">东财热榜</option>
+        </select>
+        <button id="refreshHotBtn" class="primary-btn"><i class="fas fa-sync-alt"></i> 刷新</button>
+      </div>
+
+      <!-- 排行榜表格 -->
+      <div class="leaderboard-table-wrap" id="hotlistGrid">
+        <div class="leaderboard-placeholder"><span>点击刷新加载热榜</span></div>
+      </div>
+      <div class="hot-pagination" id="hotPagination"></div>
+    </section>
+
+    <!-- ========== 板块推荐 ========== -->
+    <section id="sectorTab" class="tab-page">
+      <div class="page-header">
+        <h2>板块推荐</h2>
+        <button id="refreshSectorBtn" class="primary-btn"><i class="fas fa-sync-alt"></i> 刷新</button>
+      </div>
+
+      <!-- AI 推荐 -->
+      <div class="sector-ai-bar" id="sectorAIBar">
+        <div class="sai-section">
+          <span class="sai-label"><i class="fas fa-fire" style="color:var(--up-color)"></i> 强势板块</span>
+          <div class="sai-tags" id="strongTags"></div>
+        </div>
+        <div class="sai-section">
+          <span class="sai-label"><i class="fas fa-exclamation-triangle" style="color:var(--down-color)"></i> 弱势板块</span>
+          <div class="sai-tags" id="weakTags"></div>
+        </div>
+      </div>
+
+      <!-- 板块卡片 -->
+      <div id="sectorGrid" class="sector-grid">
+        <div class="sector-placeholder"><span>点击刷新加载热门板块</span></div>
+      </div>
+    </section>
+
+    <!-- ========== 研报中心 ========== -->
+    <section id="reportTab" class="tab-page">
+      <div class="page-header">
+        <h2>研报中心</h2>
+        <div class="page-actions">
+          <input type="text" id="reportSymbol" placeholder="输入股票代码" value="AAPL">
+          <button id="generateReportBtn" class="primary-btn"><i class="fas fa-file-export"></i> 生成研报</button>
+        </div>
+      </div>
+      <div class="report-layout">
+        <div class="report-list-panel" id="reportListPanel">
+          <div class="report-list-header">研报列表</div>
+          <div class="report-list-items" id="reportListItems">
+            <div class="report-list-empty">暂无研报，生成后自动保存</div>
+          </div>
+        </div>
+        <div class="report-detail-panel" id="reportDetailPanel">
+          <div class="report-placeholder" id="reportPlaceholder">
+            <i class="fas fa-file-alt"></i>
+            <p>选择一份研报查看详情，或生成新研报</p>
+          </div>
+          <div class="report-detail hidden" id="reportDetail"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- 弹窗 -->
+<div id="sectorModal" class="modal hidden">
+  <div class="modal-overlay"></div>
+  <div class="modal-content sector-modal-content">
+    <div class="modal-header"><h3 id="sectorModalTitle">板块详情</h3><button class="modal-close" id="closeSectorModal"><i class="fas fa-times"></i></button></div>
+    <div class="modal-body" id="sectorModalBody"></div>
+  </div>
+</div>
+<div id="settingsModal" class="modal hidden">
+  <div class="modal-overlay"></div>
+  <div class="modal-content">
+    <div class="modal-header"><h3>系统状态</h3><button class="modal-close" id="closeSettings"><i class="fas fa-times"></i></button></div>
+    <div class="modal-body"><div id="modelStatus" class="model-status"></div></div>
+  </div>
+</div>
+
+<div id="toastContainer" class="toast-container"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
