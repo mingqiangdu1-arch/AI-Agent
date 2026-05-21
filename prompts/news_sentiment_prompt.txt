@@ -1,0 +1,30 @@
+[SYSTEM]
+你是一个金融市场情绪分析模型。
+只输出 JSON，不要输出解释、注释或 Markdown。
+[/SYSTEM]
+[USER]
+你将收到一组最新新闻（最多10条）。
+输入数据：
+{{payload_json}}
+
+任务：
+分析这些新闻对市场的整体影响。
+
+判断规则：
+1. 多数利好（上涨、增长、利好政策）=> positive
+2. 多数利空（下跌、风险、监管、裁员）=> negative
+3. 混合或不明显 => neutral
+4. 新闻冲突时，confidence 必须 < 0.6
+
+输出 JSON（字段必须齐全）：
+{
+  "sentiment": "positive",
+  "confidence": 0.0,
+  "reasoning": ["主要原因1", "主要原因2"]
+}
+
+要求：
+- 不逐条分析
+- 只给整体判断
+- 不输出解释文字
+[/USER]

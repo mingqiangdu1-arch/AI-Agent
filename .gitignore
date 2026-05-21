@@ -1,39 +1,35 @@
-# Python cache
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Virtual environments
+# Virtual environment
 .venv/
 venv/
-env/
 
-# Build and packaging
-build/
-dist/
-node_modules/
-*.egg-info/
+# Environment secrets
+.env
 
-# Test and coverage
-.pytest_cache/
-.coverage
-htmlcov/
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
 
-# Jupyter
-.ipynb_checkpoints/
+# Test artifacts
+tmp_*.json
 
-# Streamlit cache
-.streamlit/
-
-# IDE / OS
+# IDE
 .vscode/
 .idea/
-.DS_Store
+
+# OS
 Thumbs.db
+.DS_Store
 
-# Logs
-*.log
+# Claude
+.claude/
+CLAUDE.md
 
-# Local env files
-.env
-.env.*
+# Misc
+DESIGN.md
+linear.app/
+stitch-mcp-test/
+ÖªÊ¶¿â/
+
+# V1 (archived)
+v1/

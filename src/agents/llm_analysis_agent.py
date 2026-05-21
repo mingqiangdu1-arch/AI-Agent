@@ -31,6 +31,18 @@ class LLMAnalysisResult:
         return asdict(self)
 
 
+@dataclass
+class LLMDecisionTuningResult:
+    decision: str
+    confidence: float
+    score_adjustment: int
+    summary: str
+    reasoning: list[str]
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
 class LLMAnalysisAgent:
     """Use an OpenAI-compatible endpoint to generate a narrative investment analysis."""
 
@@ -73,7 +85,7 @@ class LLMAnalysisAgent:
         )
 
         try:
-            with request.urlopen(req, timeout=45) as resp:
+            with request.urlopen(req, timeout=25) as resp:
                 content = resp.read().decode("utf-8")
         except error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="ignore") if exc.fp else ""
@@ -93,6 +105,104 @@ class LLMAnalysisAgent:
             summary=str(summary).strip(),
             provider_hint=endpoint,
             finish_reason=finish_reason,
+        )
+
+    def tune_decision_layer(
+        self,
+        symbol: str,
+        trend: dict[str, Any],
+        strategy: dict[str, Any],
+        risk: dict[str, Any],
+        hot: dict[str, Any],
+        base_score: int,
+        config: LLMAnalysisConfig,
+    ) -> LLMDecisionTuningResult:
+        endpoint = self._resolve_chat_endpoint(config.base_url)
+        payload = {
+            "model": config.model,
+            "temperature": min(max(config.temperature, 0.0), 0.5),
+            "max_tokens": min(max(int(config.max_tokens), 256), 900),
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "你是一个量化投研决策辅助系统。你将收到 trend、strategy、risk、hot、base_score。"
+                        "你必须只输出 JSON，字段固定为 decision/confidence/score_adjustment/summary/reasoning。"
+                        "score_adjustment 必须是 -10 到 +10 的整数。不要输出 score。"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": self._build_decision_tuning_prompt(
+                        symbol=symbol,
+                        trend=trend,
+                        strategy=strategy,
+                        risk=risk,
+                        hot=hot,
+                        base_score=base_score,
+                    ),
+                },
+            ],
+            "response_format": {"type": "json_object"},
+        }
+
+        req = request.Request(
+            endpoint,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {config.api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+
+        try:
+            with request.urlopen(req, timeout=25) as resp:
+                content = resp.read().decode("utf-8")
+        except error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="ignore") if exc.fp else ""
+            raise RuntimeError(f"LLM 决策微调调用失败: HTTP {exc.code} {detail[:240]}") from exc
+        except error.URLError as exc:
+            raise RuntimeError(f"LLM 决策微调接口不可达: {exc.reason}") from exc
+
+        try:
+            data = json.loads(content)
+            raw = str(data["choices"][0]["message"]["content"]).strip()
+            parsed = self._parse_json_object(raw)
+        except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
+            raise RuntimeError("LLM 决策微调返回格式异常，无法解析。") from exc
+
+        decision = str(parsed.get("decision", "")).strip() or "观望"
+        confidence = float(parsed.get("confidence", 0.5))
+        confidence = max(0.0, min(1.0, confidence))
+
+        adjustment_raw = parsed.get("score_adjustment", 0)
+        try:
+            adjustment = int(round(float(adjustment_raw)))
+        except Exception:
+            adjustment = 0
+        adjustment = max(-10, min(10, adjustment))
+
+        summary = str(parsed.get("summary", "")).strip()
+        if not summary:
+            summary = "规则评分基础上完成微调。"
+        if len(summary) > 30:
+            summary = summary[:30]
+
+        reasoning_raw = parsed.get("reasoning", [])
+        if isinstance(reasoning_raw, list):
+            reasoning = [str(item).strip() for item in reasoning_raw if str(item).strip()][:3]
+        else:
+            reasoning = []
+        while len(reasoning) < 3:
+            reasoning.append("信号信息有限，保持审慎。")
+
+        return LLMDecisionTuningResult(
+            decision=decision,
+            confidence=round(confidence, 2),
+            score_adjustment=adjustment,
+            summary=summary,
+            reasoning=reasoning,
         )
 
     def test_connection(self, config: LLMAnalysisConfig) -> tuple[bool, str]:
@@ -174,7 +284,7 @@ class LLMAnalysisAgent:
         )
 
         try:
-            with request.urlopen(req, timeout=45) as resp:
+            with request.urlopen(req, timeout=25) as resp:
                 content = resp.read().decode("utf-8")
         except error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="ignore") if exc.fp else ""
@@ -252,30 +362,96 @@ class LLMAnalysisAgent:
         return []
 
     @staticmethod
+    def _parse_json_object(raw_text: str) -> dict[str, Any]:
+        text = raw_text.strip()
+        if text.startswith("```"):
+            text = re.sub(r"^```(?:json)?", "", text, flags=re.IGNORECASE).strip()
+            if text.endswith("```"):
+                text = text[:-3].strip()
+
+        try:
+            data = json.loads(text)
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            pass
+
+        match = re.search(r"\{[\s\S]*\}", text)
+        if not match:
+            return {}
+        try:
+            data = json.loads(match.group(0))
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            return {}
+        return {}
+
+    @staticmethod
+    def _build_decision_tuning_prompt(
+        symbol: str,
+        trend: dict[str, Any],
+        strategy: dict[str, Any],
+        risk: dict[str, Any],
+        hot: dict[str, Any],
+        base_score: int,
+    ) -> str:
+        payload = {
+            "symbol": symbol,
+            "trend": trend,
+            "strategy": strategy,
+            "risk": risk,
+            "hot": hot,
+            "base_score": base_score,
+            "task": {
+                "decision": ["强烈看多", "偏多", "观望", "偏空", "强烈回避"],
+                "score_adjustment_range": [-10, 10],
+                "constraints": [
+                    "风险高时必须下调评分",
+                    "情绪极端时降低confidence",
+                    "不允许大幅偏离base_score",
+                ],
+            },
+            "output_schema": {
+                "decision": "string",
+                "confidence": "float_0_to_1",
+                "score_adjustment": "int_-10_to_10",
+                "summary": "string_max_30_chars",
+                "reasoning": ["string", "string", "string"],
+            },
+        }
+        return json.dumps(payload, ensure_ascii=False)
+
+    @staticmethod
     def _build_user_prompt(
         symbol: str,
         price_df: pd.DataFrame,
         trend_result: TrendAnalysisResult,
         strategy_result: StrategyResult,
     ) -> str:
-        latest_rows = price_df.tail(10).copy()
+        """构建LLM分析提示词。精简数据，减少token消耗。"""
+        latest_rows = price_df.tail(5).copy()
         latest_rows.index = latest_rows.index.astype(str)
         compact_rows = latest_rows[["open", "high", "low", "close", "volume"]].to_dict(orient="index")
 
+        trend_dict = trend_result.to_dict()
+        strategy_dict = strategy_result.to_dict()
+
         prompt_payload = {
             "symbol": symbol.upper(),
-            "trend_analysis": trend_result.to_dict(),
-            "strategy": strategy_result.to_dict(),
-            "recent_ohlcv": compact_rows,
-            "output_requirements": {
-                "language": "zh-CN",
-                "format": "markdown",
-                "sections": [
-                    "一、趋势结论（1-2句）",
-                    "二、关键依据（最多3条）",
-                    "三、策略建议解读（入场/目标/止损）",
-                    "四、短期风险与应对（最多3条）",
-                ],
+            "trend": {
+                "direction": trend_dict.get("trend"),
+                "confidence": trend_dict.get("confidence"),
+                "ma": trend_dict.get("ma_summary"),
+                "macd": trend_dict.get("macd_summary"),
+                "rsi": trend_dict.get("rsi_summary"),
             },
+            "strategy": {
+                "advice": strategy_dict.get("attention_advice"),
+                "target": strategy_dict.get("target_price"),
+                "stop_loss": strategy_dict.get("stop_loss_price"),
+            },
+            "recent_5days": compact_rows,
+            "risk_alerts": trend_dict.get("risk_alerts", []),
         }
         return json.dumps(prompt_payload, ensure_ascii=False)
