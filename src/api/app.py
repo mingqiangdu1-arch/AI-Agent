@@ -343,3 +343,10 @@ def market_summary() -> dict:
     return {"code": 0, "message": "success", "status": "success", "data": result, "error": None, "meta": {}}
 
 
+# 根路径静态文件（本地开发时 HTML 使用相对路径，需从这里获取）
+@app.get("/{filename:path}")
+def root_static(filename: str):
+    file_path = FRONTEND_DIR / filename
+    if file_path.exists() and file_path.is_file():
+        return FileResponse(file_path)
+    return {"message": "Not found"}, 404
